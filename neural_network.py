@@ -57,9 +57,8 @@ class Neuron:
 
   def fireForward(self):
     for forwardAttachment in self.forwardAttachments:
-      weighted = self.output * forwardAttachment.weight
-      print(self.name, " firing to ", forwardAttachment.neuron.name, " with output: ", self.output, " and after weight: ", weighted)
-      forwardAttachment.neuron.receiveSignal(weighted)
+      weightedOutput = self.output * forwardAttachment.weight
+      forwardAttachment.neuron.receiveSignal(weightedOutput)
 
   def squash(self, val):
     return 1 / (1 + math.exp(-val))
@@ -77,9 +76,25 @@ class OutputNeuron(HiddenNeuron):
     HiddenNeuron.__init__(self, bias, name)
     self.target = target
 
-
   def calculateError(self):
     return 0.5 * (self.target - self.output) ** 2
+
+  # leaving snake case for the methods below
+  # because easier to read
+  def calculate_pd_error_wrt_output(self):
+    return -(self.target - self.output)
+
+  def calculate_pd_total_net_input_wrt_input(self):
+    return self.output * (1 - self.output)
+
+  def calculate_pd_total_net_input_wrt_weight(self, index):
+    return self.rearAttachments[index].neuron.output
+
+  def calculate_pd_error_wrt_total_net_input(self):
+    return self.calculate_pd_error_wrt_output() * self.calculate_pd_total_net_input_wrt_input()
+
+  def calculate_pd_total_error_wrt_weight(self, index):
+    return self.calculate_pd_error_wrt_total_net_input() * self.calculate_pd_total_net_input_wrt_weight(index)
 
 class Attachment:
   def __init__(self, neuron, weight):
@@ -117,5 +132,6 @@ nn.clearTotal()
 nn.printOutput()
 nn.feedForward([0.05, 0.10])
 nn.printOutput()
-print(nn.calculateTotalError())
+print("Total Error: ", nn.calculateTotalError())
+print("pd error wrt total net input for O1: ", o1.calculate_pd_total_error_wrt_weight(0))
 
