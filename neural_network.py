@@ -1,6 +1,8 @@
 import math
 
 class NeuralNetwork:
+  LEARNING_RATE = 0.5
+
   def __init__(self, inputNeurons, outputNeurons):
     self.inputNeurons = inputNeurons
     self.outputNeurons = outputNeurons
@@ -71,18 +73,14 @@ class HiddenNeuron(Neuron):
   def calculateOutput(self):
     self.output = self.squash(self.total + self.bias)
 
-class OutputNeuron(HiddenNeuron):
-  def __init__(self, bias, name, target):
-    HiddenNeuron.__init__(self, bias, name)
-    self.target = target
+  def calculate_pd_total_error_wrt_output(self):
+    pd_error = 0
+    for i, forwardAttachment in enumerate(self.forwardAttachments):
+      pd_error += calculate_pd_error_wrt_output()
 
-  def calculateError(self):
-    return 0.5 * (self.target - self.output) ** 2
 
-  # leaving snake case for the methods below
-  # because easier to read
-  def calculate_pd_error_wrt_output(self):
-    return -(self.target - self.output)
+  def calculate_pd_error_wrt_output(self, index):
+    return self.calculate_pd_error_wrt_total_net_input() * 1
 
   def calculate_pd_total_net_input_wrt_input(self):
     return self.output * (1 - self.output)
@@ -91,10 +89,28 @@ class OutputNeuron(HiddenNeuron):
     return self.rearAttachments[index].neuron.output
 
   def calculate_pd_error_wrt_total_net_input(self):
-    return self.calculate_pd_error_wrt_output() * self.calculate_pd_total_net_input_wrt_input()
+    return self.calculate_pd_total_error_wrt_output() * self.calculate_pd_total_net_input_wrt_input()
 
   def calculate_pd_total_error_wrt_weight(self, index):
     return self.calculate_pd_error_wrt_total_net_input() * self.calculate_pd_total_net_input_wrt_weight(index)
+
+  def updateLearningRate(self, index):
+    self.rearAttachments[index].weight -= LEARNING_RATE * calculate_pd_total_error_wrt_weight(index)
+
+  def updateLearningRates(self):
+    for i, rearAttachment in enumerate(self.rearAttachments):
+      self.updateLearningRate(i)
+
+class OutputNeuron(HiddenNeuron):
+  def __init__(self, bias, name, target):
+    HiddenNeuron.__init__(self, bias, name)
+    self.target = target
+
+  def calculateError(self):
+    return 0.5 * (self.target - self.output) ** 2
+
+  def calculate_pd_total_error_wrt_output(self):
+    return -(self.target - self.output)
 
 class Attachment:
   def __init__(self, neuron, weight):
