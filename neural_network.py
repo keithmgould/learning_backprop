@@ -18,7 +18,7 @@ class NeuralNetwork:
   def printOutput(self):
     print("Output:")
     for outputNeuron in self.outputNeurons:
-      print(outputNeuron.final)
+      print(outputNeuron.output)
 
   def feedForward(self, forwardValues):
     for i, forwardValue in enumerate(forwardValues):
@@ -31,7 +31,7 @@ class Neuron:
     self.forwardAttachments = []
     self.rearAttachments = []
     self.total = 0
-    self.final = 0
+    self.output = 0
     self.rearSignalCount = 0
 
   def connectToForwardNeuron(self, neuron, weight):
@@ -41,7 +41,7 @@ class Neuron:
   def clearTotal(self):
     self.rearSignalCount = 0
     self.total = 0
-    self.final = 0
+    self.output = 0
     for forwardAttachment in self.forwardAttachments:
       forwardAttachment.neuron.clearTotal()
 
@@ -49,35 +49,28 @@ class Neuron:
     self.rearSignalCount += 1
     self.total += newInput
     if self.allSignalsReceived():
-      self.calculateFinal()
+      self.calculateOutput()
       self.fireForward()
 
   def allSignalsReceived(self):
     return self.rearSignalCount >= len(self.rearAttachments)
 
-  def calculateFinal(self):
-    final = self.total + self.bias
-    if self.shouldSquash():
-      final = self.squash(final)
-    self.final = final
-
   def fireForward(self):
     for forwardAttachment in self.forwardAttachments:
-      weighted = self.final * forwardAttachment.weight
-      print(self.name, " firing to ", forwardAttachment.neuron.name, " with final: ", self.final, " and after weight: ", weighted)
+      weighted = self.output * forwardAttachment.weight
+      print(self.name, " firing to ", forwardAttachment.neuron.name, " with output: ", self.output, " and after weight: ", weighted)
       forwardAttachment.neuron.receiveSignal(weighted)
 
   def squash(self, val):
     return 1 / (1 + math.exp(-val))
 
 class InputNeuron(Neuron):
-  def shouldSquash(self):
-    return False
+  def calculateOutput(self):
+    self.output = self.total + self.bias
 
 class HiddenNeuron(Neuron):
-  def shouldSquash(self):
-    return True
-
+  def calculateOutput(self):
+    self.output = self.squash(self.total + self.bias)
 
 class OutputNeuron(HiddenNeuron):
   def __init__(self, bias, name, target):
@@ -86,7 +79,7 @@ class OutputNeuron(HiddenNeuron):
 
 
   def calculateError(self):
-    return 0.5 * (self.target - self.final) ** 2
+    return 0.5 * (self.target - self.output) ** 2
 
 class Attachment:
   def __init__(self, neuron, weight):
