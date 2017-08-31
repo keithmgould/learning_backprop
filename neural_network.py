@@ -66,6 +66,9 @@ class Neuron:
     return 1 / (1 + math.exp(-val))
 
 class InputNeuron(Neuron):
+  def __init__(self, name):
+    Neuron.__init__(self, 0, name)
+
   def calculateOutput(self):
     self.output = self.total + self.bias
 
@@ -122,8 +125,8 @@ b1 = 0.35
 b2 = 0.60
 
 # inputs
-i1 = InputNeuron(0, 'i1')
-i2 = InputNeuron(0, 'i2')
+i1 = InputNeuron('i1')
+i2 = InputNeuron('i2')
 
 # hiddens
 h1 = HiddenNeuron(b1, 'h1')
