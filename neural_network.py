@@ -1,11 +1,12 @@
 import math
 
-class NeuralNetwork:
-  LEARNING_RATE = 0.5
+LEARNING_RATE = 0.5
 
-  def __init__(self, inputNeurons, outputNeurons):
+class NeuralNetwork:
+  def __init__(self, inputNeurons, outputNeurons, hiddenNeurons):
     self.inputNeurons = inputNeurons
     self.outputNeurons = outputNeurons
+    self.hiddenNeurons = hiddenNeurons
 
   def clearTotal(self):
     for inputNeuron in self.inputNeurons:
@@ -20,11 +21,17 @@ class NeuralNetwork:
   def printOutput(self):
     print("Output:")
     for outputNeuron in self.outputNeurons:
-      print(outputNeuron.output)
+      print(outputNeuron.name, ": ", outputNeuron.output)
 
   def feedForward(self, forwardValues):
     for i, forwardValue in enumerate(forwardValues):
       self.inputNeurons[i].receiveSignal(forwardValue)
+
+  def learn(self):
+    for hiddenNeuron in self.hiddenNeurons:
+      hiddenNeuron.updateRearWeights()
+    for outputNeuron in self.outputNeurons:
+      outputNeuron.updateRearWeights()
 
 class Neuron:
   def __init__(self, bias, name):
@@ -62,6 +69,7 @@ class Neuron:
       weightedOutput = self.output * forwardAttachment.weight
       forwardAttachment.neuron.receiveSignal(weightedOutput)
 
+  # sigmoid function
   def squash(self, val):
     return 1 / (1 + math.exp(-val))
 
@@ -76,33 +84,51 @@ class HiddenNeuron(Neuron):
   def calculateOutput(self):
     self.output = self.squash(self.total + self.bias)
 
+  # ------------------------------------------------
+  # Methods below calculate partial derivatives
+
+  # ∂E(total)/∂Weight(index)
+  def calculate_pd_total_error_wrt_weight(self, index):
+    a = self.calculate_pd_total_error_wrt_output()
+    b = self.calculate_pd_output_wrt_net_input()
+    c = self.calculate_pd_net_input_wrt_weight(index)
+    return a * b * c
+
+  # ∂E(total)/∂Out(self)
   def calculate_pd_total_error_wrt_output(self):
     pd_error = 0
-    for i, forwardAttachment in enumerate(self.forwardAttachments):
-      pd_error += calculate_pd_error_wrt_output()
+    for forwardIndex, forwardAttachment in enumerate(self.forwardAttachments):
+      pd_error += self.calculate_pd_error_wrt_output(forwardIndex)
+    return pd_error
 
+  # ∂E(forwardIndex)/∂Out(self) = [∂E(self)/∂Net(self)] * [∂Net(self)/∂Out(forwardIndex)]
+  def calculate_pd_error_wrt_output(self, forwardIndex):
+    forwardNeuron = self.forwardAttachments[forwardIndex].neuron
+    a = forwardNeuron.calculate_pd_error_wrt_net_input()
+    b = self.calculate_pd_net_input_wrt_output(forwardIndex)
+    return a * b
 
-  def calculate_pd_error_wrt_output(self, index):
-    return self.calculate_pd_error_wrt_total_net_input() * 1
-
-  def calculate_pd_total_net_input_wrt_input(self):
+  # ∂Out(self)/∂Net(self)
+  def calculate_pd_output_wrt_net_input(self):
     return self.output * (1 - self.output)
 
-  def calculate_pd_total_net_input_wrt_weight(self, index):
+  # ∂Net(self)/∂Out(self)
+  def calculate_pd_net_input_wrt_output(self, index):
+    return self.forwardAttachments[index].weight
+
+  # ∂Net(self)/∂Weight(index)
+  def calculate_pd_net_input_wrt_weight(self, index):
     return self.rearAttachments[index].neuron.output
 
-  def calculate_pd_error_wrt_total_net_input(self):
-    return self.calculate_pd_total_error_wrt_output() * self.calculate_pd_total_net_input_wrt_input()
+  def updateRearWeight(self, index):
+    total_err_wrt_weight = self.calculate_pd_total_error_wrt_weight(index)
+    oldWeight = self.rearAttachments[index].weight
+    self.rearAttachments[index].weight -= LEARNING_RATE * total_err_wrt_weight
+    print(self.name, 'is updating rearWeight(', index, ') from ', oldWeight, ' to ', self.rearAttachments[index].weight)
 
-  def calculate_pd_total_error_wrt_weight(self, index):
-    return self.calculate_pd_error_wrt_total_net_input() * self.calculate_pd_total_net_input_wrt_weight(index)
-
-  def updateLearningRate(self, index):
-    self.rearAttachments[index].weight -= LEARNING_RATE * calculate_pd_total_error_wrt_weight(index)
-
-  def updateLearningRates(self):
-    for i, rearAttachment in enumerate(self.rearAttachments):
-      self.updateLearningRate(i)
+  def updateRearWeights(self):
+    for rearIndex, rearAttachment in enumerate(self.rearAttachments):
+      self.updateRearWeight(rearIndex)
 
 class OutputNeuron(HiddenNeuron):
   def __init__(self, bias, name, target):
@@ -112,6 +138,13 @@ class OutputNeuron(HiddenNeuron):
   def calculateError(self):
     return 0.5 * (self.target - self.output) ** 2
 
+  # ∂E(self)/∂Net(self)
+  def calculate_pd_error_wrt_net_input(self):
+    a = self.calculate_pd_total_error_wrt_output()
+    b = self.calculate_pd_output_wrt_net_input()
+    return a * b
+
+  # ∂Error(self)/∂Out(self)
   def calculate_pd_total_error_wrt_output(self):
     return -(self.target - self.output)
 
@@ -119,6 +152,9 @@ class Attachment:
   def __init__(self, neuron, weight):
     self.neuron = neuron
     self.weight = weight
+
+#-----------------------------------------------------
+# Now lets actually use the network
 
 # biases
 b1 = 0.35
@@ -146,11 +182,20 @@ h1.connectToForwardNeuron(o2, .50)
 h2.connectToForwardNeuron(o1, .45)
 h2.connectToForwardNeuron(o2, .55)
 
-nn = NeuralNetwork([i1,i2], [o1, o2])
+nn = NeuralNetwork([i1,i2], [o1, o2], [h1, h2])
 nn.clearTotal()
 nn.printOutput()
 nn.feedForward([0.05, 0.10])
 nn.printOutput()
 print("Total Error: ", nn.calculateTotalError())
-print("pd error wrt total net input for O1: ", o1.calculate_pd_total_error_wrt_weight(0))
+print("o1 Total Error wrt W5: ", o1.calculate_pd_total_error_wrt_weight(0));
+print("o1 Total Error wrt W6: ", o1.calculate_pd_total_error_wrt_weight(1));
+print("h1 Total Error wrt W1: ", h1.calculate_pd_total_error_wrt_weight(0));
+nn.learn()
+nn.clearTotal()
+nn.feedForward([0.05, 0.10])
+print("Total Error: ", nn.calculateTotalError())
+
+
+
 
