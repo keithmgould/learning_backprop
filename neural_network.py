@@ -43,16 +43,17 @@ class Neuron:
     self.output = 0
     self.rearSignalCount = 0
 
-  def connectToForwardNeuron(self, neuron, weight):
-    neuron.rearAttachments.append(Attachment(self, weight))
-    self.forwardAttachments.append(Attachment(neuron, weight))
+  def connectToForwardNeuron(self, forwardNeuron, weight):
+    newAttachment = Attachment(self, forwardNeuron, weight)
+    forwardNeuron.rearAttachments.append(newAttachment)
+    self.forwardAttachments.append(newAttachment)
 
   def clearTotal(self):
     self.rearSignalCount = 0
     self.total = 0
     self.output = 0
     for forwardAttachment in self.forwardAttachments:
-      forwardAttachment.neuron.clearTotal()
+      forwardAttachment.forwardNeuron.clearTotal()
 
   def receiveSignal(self, newInput):
     self.rearSignalCount += 1
@@ -67,7 +68,7 @@ class Neuron:
   def fireForward(self):
     for forwardAttachment in self.forwardAttachments:
       weightedOutput = self.output * forwardAttachment.weight
-      forwardAttachment.neuron.receiveSignal(weightedOutput)
+      forwardAttachment.forwardNeuron.receiveSignal(weightedOutput)
 
   # sigmoid function
   def squash(self, val):
@@ -103,7 +104,7 @@ class HiddenNeuron(Neuron):
 
   # ∂E(forwardIndex)/∂Out(self) = [∂E(self)/∂Net(self)] * [∂Net(self)/∂Out(forwardIndex)]
   def calculate_pd_error_wrt_output(self, forwardIndex):
-    forwardNeuron = self.forwardAttachments[forwardIndex].neuron
+    forwardNeuron = self.forwardAttachments[forwardIndex].forwardNeuron
     a = forwardNeuron.calculate_pd_error_wrt_net_input()
     b = self.calculate_pd_net_input_wrt_output(forwardIndex)
     return a * b
@@ -118,7 +119,7 @@ class HiddenNeuron(Neuron):
 
   # ∂Net(self)/∂Weight(index)
   def calculate_pd_net_input_wrt_weight(self, index):
-    return self.rearAttachments[index].neuron.output
+    return self.rearAttachments[index].rearNeuron.output
 
   def updateRearWeight(self, index):
     total_err_wrt_weight = self.calculate_pd_total_error_wrt_weight(index)
@@ -149,8 +150,9 @@ class OutputNeuron(HiddenNeuron):
     return -(self.target - self.output)
 
 class Attachment:
-  def __init__(self, neuron, weight):
-    self.neuron = neuron
+  def __init__(self, rearNeuron, forwardNeuron, weight):
+    self.rearNeuron = rearNeuron
+    self.forwardNeuron = forwardNeuron
     self.weight = weight
 
 #-----------------------------------------------------
