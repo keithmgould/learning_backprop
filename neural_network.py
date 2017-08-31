@@ -70,7 +70,7 @@ class InputNeuron(Neuron):
     Neuron.__init__(self, 0, name)
 
   def calculateOutput(self):
-    self.output = self.total + self.bias
+    self.output = self.total
 
 class HiddenNeuron(Neuron):
   def calculateOutput(self):
